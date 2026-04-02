@@ -168,7 +168,7 @@ public static class WindowHelper
         Marshal.FreeHGlobal(accentPtr);
     }
 
-    public static void DisableBlur(Window window)
+    public static void DisableDwmBlur(Window window)
     {
         var accent = new AccentPolicy();
         var accentStructSize = Marshal.SizeOf(accent);
@@ -211,6 +211,11 @@ public static class WindowHelper
 
         var hwnd = new WindowInteropHelper(window).Handle;
 
+        if (!window.AllowsTransparency && HwndSource.FromHwnd(hwnd) is HwndSource hwndSource)
+        {
+            hwndSource.CompositionTarget.BackgroundColor = Colors.Transparent;
+        }
+
         var isDarkThemeInt = isDarkTheme ? 1 : 0;
         Dwmapi.DwmSetWindowAttribute(hwnd, (uint)Dwmapi.WindowAttribute.UseImmersiveDarkMode, ref isDarkThemeInt, Marshal.SizeOf(typeof(bool)));
 
@@ -228,7 +233,17 @@ public static class WindowHelper
 
     public static void EnableBackdropMicaBlur(Window window, bool isDarkTheme)
     {
-        EnableDwmBlur(window, isDarkTheme, (uint)Dwmapi.WindowAttribute.SystembackdropType, (int)Dwmapi.SystembackdropType.MainWindow);
+        EnableDwmBlur(window, isDarkTheme, (uint)Dwmapi.WindowAttribute.SystembackdropType, (int)Dwmapi.SystembackdropType.Mica);
+    }
+
+    public static void EnableBackdropAcrylicBlur(Window window, bool isDarkTheme)
+    {
+        EnableDwmBlur(window, isDarkTheme, (uint)Dwmapi.WindowAttribute.SystembackdropType, (int)Dwmapi.SystembackdropType.Acrylic);
+    }
+
+    public static void EnableBackdropTabbedBlur(Window window, bool isDarkTheme)
+    {
+        EnableDwmBlur(window, isDarkTheme, (uint)Dwmapi.WindowAttribute.SystembackdropType, (int)Dwmapi.SystembackdropType.Tabbed);
     }
 
     [StructLayout(LayoutKind.Sequential)]

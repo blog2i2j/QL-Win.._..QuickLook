@@ -27,6 +27,7 @@ using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Shell;
 using Wpf.Ui.Violeta.Controls;
+using static QuickLook.Common.NativeMethods.Dwmapi;
 using Brush = System.Windows.Media.Brush;
 using FontFamily = System.Windows.Media.FontFamily;
 using Size = System.Windows.Size;
@@ -157,6 +158,12 @@ public partial class ViewerWindow : Window
         base.Close();
     }
 
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        ApplyWindowBackgroundEffects();
+    }
+
     public override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
@@ -171,31 +178,14 @@ public partial class ViewerWindow : Window
         var useTransparency = SettingHelper.Get("UseTransparency", true)
             && SystemParameters.IsGlassEnabled
             && !App.IsGPUInBlacklist;
+        var backdrop = GetBackdropOption();
 
         var windowChrome = WindowChrome.GetWindowChrome(this);
         windowChrome?.GlassFrameThickness = useTransparency ? new Thickness(1) : new Thickness(0);
 
         if (useTransparency)
         {
-            if (App.IsWin11)
-            {
-                if (Environment.OSVersion.Version >= new Version(10, 0, 22523))
-                {
-                    WindowHelper.EnableBackdropMicaBlur(this, CurrentTheme == Themes.Dark);
-                }
-                else
-                {
-                    WindowHelper.EnableMicaBlur(this, CurrentTheme == Themes.Dark);
-                }
-            }
-            else if (App.IsWin10)
-            {
-                WindowHelper.EnableBlur(this);
-            }
-            else
-            {
-                Background = (Brush)FindResource("MainWindowBackgroundNoTransparent");
-            }
+            ApplyBackdrop(backdrop);
         }
         else
         {
@@ -214,6 +204,123 @@ public partial class ViewerWindow : Window
                 // ignore invalid color
             }
         }
+    }
+
+    private void ApplyBackdrop(SystembackdropType backdrop)
+    {
+        switch (backdrop)
+        {
+            case SystembackdropType.None:
+                Background = (Brush)FindResource("MainWindowBackgroundNoTransparent");
+                break;
+
+            case SystembackdropType.Mica:
+                if (App.IsWin11)
+                {
+                    if (Environment.OSVersion.Version >= new Version(10, 0, 22523))
+                    {
+                        WindowHelper.DisableDwmBlur(this);
+                        WindowHelper.EnableBackdropMicaBlur(this, CurrentTheme == Themes.Dark);
+                    }
+                    else
+                    {
+                        WindowHelper.DisableDwmBlur(this);
+                        WindowHelper.EnableMicaBlur(this, CurrentTheme == Themes.Dark);
+                    }
+                }
+                else if (App.IsWin10)
+                {
+                    WindowHelper.DisableDwmBlur(this);
+                    WindowHelper.EnableBlur(this);
+                }
+                else
+                {
+                    Background = (Brush)FindResource("MainWindowBackgroundNoTransparent");
+                }
+
+                break;
+
+            case SystembackdropType.Acrylic:
+                if (App.IsWin11 && Environment.OSVersion.Version >= new Version(10, 0, 22523))
+                {
+                    WindowHelper.DisableDwmBlur(this);
+                    WindowHelper.EnableBackdropAcrylicBlur(this, CurrentTheme == Themes.Dark);
+                }
+                else if (App.IsWin10)
+                {
+                    WindowHelper.DisableDwmBlur(this);
+                    WindowHelper.EnableBlur(this);
+                }
+                else
+                {
+                    Background = (Brush)FindResource("MainWindowBackgroundNoTransparent");
+                }
+
+                break;
+
+            case SystembackdropType.Tabbed:
+                if (App.IsWin11 && Environment.OSVersion.Version >= new Version(10, 0, 22523))
+                {
+                    WindowHelper.DisableDwmBlur(this);
+                    WindowHelper.EnableBackdropTabbedBlur(this, CurrentTheme == Themes.Dark);
+                }
+                else if (App.IsWin10)
+                {
+                    WindowHelper.DisableDwmBlur(this);
+                    WindowHelper.EnableBlur(this);
+                }
+                else
+                {
+                    Background = (Brush)FindResource("MainWindowBackgroundNoTransparent");
+                }
+
+                break;
+
+            case SystembackdropType.Auto:
+            default:
+                if (App.IsWin11)
+                {
+                    if (Environment.OSVersion.Version >= new Version(10, 0, 22523))
+                    {
+                        WindowHelper.DisableDwmBlur(this);
+                        WindowHelper.EnableBackdropMicaBlur(this, CurrentTheme == Themes.Dark);
+                    }
+                    else
+                    {
+                        WindowHelper.DisableDwmBlur(this);
+                        WindowHelper.EnableMicaBlur(this, CurrentTheme == Themes.Dark);
+                    }
+                }
+                else if (App.IsWin10)
+                {
+                    WindowHelper.DisableDwmBlur(this);
+                    WindowHelper.EnableBlur(this);
+                }
+                else
+                {
+                    Background = (Brush)FindResource("MainWindowBackgroundNoTransparent");
+                }
+
+                break;
+        }
+    }
+
+    private static SystembackdropType GetBackdropOption()
+    {
+        var option = SettingHelper.Get("WindowBackdrop", nameof(SystembackdropType.Auto), "QuickLook")?.Trim();
+
+        if (string.IsNullOrEmpty(option))
+            return SystembackdropType.Auto;
+
+        if (string.Equals(option, nameof(SystembackdropType.Acrylic), StringComparison.OrdinalIgnoreCase))
+            return SystembackdropType.Acrylic;
+
+        if (string.Equals(option, nameof(SystembackdropType.Tabbed), StringComparison.OrdinalIgnoreCase))
+            return SystembackdropType.Tabbed;
+
+        return Enum.TryParse(option, true, out SystembackdropType parsed)
+            ? parsed
+            : SystembackdropType.Auto;
     }
 
     private void SaveWindowSizeOnSizeChanged(object sender, SizeChangedEventArgs e)
