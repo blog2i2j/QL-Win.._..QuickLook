@@ -158,17 +158,18 @@ public partial class ViewerWindow : Window
         base.Close();
     }
 
-    protected override void OnSourceInitialized(EventArgs e)
-    {
-        base.OnSourceInitialized(e);
-        ApplyWindowBackgroundEffects();
-    }
-
     public override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
 
         WindowHelper.RemoveWindowControls(this);
+
+        ApplyWindowBackgroundEffects();
+    }
+
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
 
         ApplyWindowBackgroundEffects();
     }
