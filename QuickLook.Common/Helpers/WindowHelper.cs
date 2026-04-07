@@ -168,6 +168,40 @@ public static class WindowHelper
         Marshal.FreeHGlobal(accentPtr);
     }
 
+    public static void EnableAcrylicBlur(Window window, Color tintColor)
+    {
+        window.Background = Brushes.Transparent;
+
+        var hwnd = new WindowInteropHelper(window).EnsureHandle();
+
+        if (!window.AllowsTransparency && HwndSource.FromHwnd(hwnd) is HwndSource hwndSource)
+        {
+            hwndSource.CompositionTarget.BackgroundColor = Colors.Transparent;
+        }
+
+        var margins = new Dwmapi.Margins(-1, -1, -1, -1);
+        Dwmapi.DwmExtendFrameIntoClientArea(hwnd, ref margins);
+
+        var accent = new AccentPolicy();
+        var accentStructSize = Marshal.SizeOf(accent);
+        accent.AccentState = AccentState.AccentEnableAcrylicblurbehind;
+        accent.GradientColor = ToAbgr(tintColor, 0.8);
+
+        var accentPtr = Marshal.AllocHGlobal(accentStructSize);
+        Marshal.StructureToPtr(accent, accentPtr, false);
+
+        var data = new WindowCompositionAttributeData
+        {
+            Attribute = WindowCompositionAttribute.WcaAccentPolicy,
+            SizeOfData = accentStructSize,
+            Data = accentPtr
+        };
+
+        User32.SetWindowCompositionAttribute(hwnd, ref data);
+
+        Marshal.FreeHGlobal(accentPtr);
+    }
+
     public static void DisableDwmBlur(Window window)
     {
         var accent = new AccentPolicy();
@@ -202,6 +236,12 @@ public static class WindowHelper
             var micaEnabled = 0;
             Dwmapi.DwmSetWindowAttribute(hwnd, (uint)Dwmapi.WindowAttribute.MicaEffect, ref micaEnabled, Marshal.SizeOf(typeof(int)));
         }
+
+        if (Environment.OSVersion.Version >= new Version(10, 0, 22000))
+        {
+            var captionColor = -1;
+            Dwmapi.DwmSetWindowAttribute(hwnd, (uint)Dwmapi.WindowAttribute.CaptionColor, ref captionColor, Marshal.SizeOf(typeof(int)));
+        }
     }
 
     private static void EnableDwmBlur(Window window, bool isDarkTheme, uint dwAttribute, int pvAttribute)
@@ -209,15 +249,21 @@ public static class WindowHelper
         // Mica will handle the color
         window.Background = Brushes.Transparent;
 
-        var hwnd = new WindowInteropHelper(window).Handle;
+        var hwnd = new WindowInteropHelper(window).EnsureHandle();
 
         if (!window.AllowsTransparency && HwndSource.FromHwnd(hwnd) is HwndSource hwndSource)
         {
             hwndSource.CompositionTarget.BackgroundColor = Colors.Transparent;
         }
 
+        if (Environment.OSVersion.Version >= new Version(10, 0, 22000))
+        {
+            var captionColor = -2;
+            Dwmapi.DwmSetWindowAttribute(hwnd, (uint)Dwmapi.WindowAttribute.CaptionColor, ref captionColor, Marshal.SizeOf(typeof(int)));
+        }
+
         var isDarkThemeInt = isDarkTheme ? 1 : 0;
-        Dwmapi.DwmSetWindowAttribute(hwnd, (uint)Dwmapi.WindowAttribute.UseImmersiveDarkMode, ref isDarkThemeInt, Marshal.SizeOf(typeof(bool)));
+        Dwmapi.DwmSetWindowAttribute(hwnd, (uint)Dwmapi.WindowAttribute.UseImmersiveDarkMode, ref isDarkThemeInt, Marshal.SizeOf(typeof(int)));
 
         var margins = new Dwmapi.Margins(-1, -1, -1, -1);
         Dwmapi.DwmExtendFrameIntoClientArea(hwnd, ref margins);
@@ -260,7 +306,16 @@ public static class WindowHelper
         AccentEnableGradient = 1,
         AccentEnableTransparentgradient = 2,
         AccentEnableBlurbehind = 3,
-        AccentInvalidState = 4,
+        AccentEnableAcrylicblurbehind = 4,
+        AccentInvalidState = 5,
+    }
+
+    private static uint ToAbgr(Color color, double alphaScale)
+    {
+        return (uint)(color.R << 0 |
+            color.G << 8 |
+            color.B << 16 |
+            (int)(color.A * alphaScale) << 24);
     }
 
     [StructLayout(LayoutKind.Sequential)]

@@ -33,6 +33,7 @@ public static class Dwmapi
     public enum WindowAttribute
     {
         UseImmersiveDarkMode = 20,
+        CaptionColor = 35,
         SystembackdropType = 38,
         MicaEffect = 1029,
     }
@@ -44,9 +45,8 @@ public static class Dwmapi
         Mica = 2,
         Acrylic = 3, // Automatically selects the best Acrylic effect available on the system (Acrylic11 > Acrylic10)
         Tabbed = 4,
-
-        Acrylic10, // Windows 10 style, supported on Windows 10 and 11
-        Acrylic11, // Windows 11 style, supported on Windows 11 22523+ (Insider) and 22621+ (Stable)
+        Acrylic10 = 5, // Windows 10 style, supported on Windows 10 and 11
+        Acrylic11 = 6, // Windows 11 style, supported on Windows 11 22523+ (Insider) and 22621+ (Stable)
     }
 
     [DllImport("DwmApi.dll")]

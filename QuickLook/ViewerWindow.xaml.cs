@@ -29,7 +29,9 @@ using System.Windows.Shell;
 using Wpf.Ui.Violeta.Controls;
 using static QuickLook.Common.NativeMethods.Dwmapi;
 using Brush = System.Windows.Media.Brush;
+using Color = System.Windows.Media.Color;
 using FontFamily = System.Windows.Media.FontFamily;
+using SolidColorBrush = System.Windows.Media.SolidColorBrush;
 using Size = System.Windows.Size;
 
 namespace QuickLook;
@@ -180,6 +182,7 @@ public partial class ViewerWindow : Window
             && SystemParameters.IsGlassEnabled
             && !App.IsGPUInBlacklist;
         var backdrop = GetBackdropOption();
+        var keepsTransparentBackground = useTransparency && backdrop != SystembackdropType.None;
 
         var windowChrome = WindowChrome.GetWindowChrome(this);
         windowChrome?.GlassFrameThickness = useTransparency ? new Thickness(1) : new Thickness(0);
@@ -194,7 +197,7 @@ public partial class ViewerWindow : Window
         }
 
         var customColor = SettingHelper.Get("WindowBackgroundColor", string.Empty, "QuickLook");
-        if (!string.IsNullOrEmpty(customColor))
+        if (!keepsTransparentBackground && !string.IsNullOrEmpty(customColor))
         {
             try
             {
@@ -249,8 +252,45 @@ public partial class ViewerWindow : Window
                 }
                 else if (App.IsWin10)
                 {
+                    var acrylicTint = GetAcrylicTintColor();
+
                     WindowHelper.DisableDwmBlur(this);
-                    WindowHelper.EnableBlur(this);
+                    WindowHelper.EnableAcrylicBlur(this, acrylicTint);
+                }
+                else
+                {
+                    Background = (Brush)FindResource("MainWindowBackgroundNoTransparent");
+                }
+
+                break;
+
+            case SystembackdropType.Acrylic10:
+                if (App.IsWin10 || App.IsWin11)
+                {
+                    var acrylicTint = GetAcrylicTintColor();
+
+                    WindowHelper.DisableDwmBlur(this);
+                    WindowHelper.EnableAcrylicBlur(this, acrylicTint);
+                }
+                else
+                {
+                    Background = (Brush)FindResource("MainWindowBackgroundNoTransparent");
+                }
+
+                break;
+
+            case SystembackdropType.Acrylic11:
+                if (App.IsWin11 && Environment.OSVersion.Version >= new Version(10, 0, 22523))
+                {
+                    WindowHelper.DisableDwmBlur(this);
+                    WindowHelper.EnableBackdropAcrylicBlur(this, CurrentTheme == Themes.Dark);
+                }
+                else if (App.IsWin10 || App.IsWin11)
+                {
+                    var acrylicTint = GetAcrylicTintColor();
+
+                    WindowHelper.DisableDwmBlur(this);
+                    WindowHelper.EnableAcrylicBlur(this, acrylicTint);
                 }
                 else
                 {
@@ -304,6 +344,27 @@ public partial class ViewerWindow : Window
 
                 break;
         }
+    }
+
+    private Color GetAcrylicTintColor()
+    {
+        var customColor = SettingHelper.Get("WindowBackgroundColor", string.Empty, "QuickLook");
+
+        if (!string.IsNullOrEmpty(customColor))
+        {
+            try
+            {
+                return ((SolidColorBrush)new System.Windows.Media.BrushConverter().ConvertFromString(customColor)).Color;
+            }
+            catch
+            {
+                // ignore invalid color
+            }
+        }
+
+        return Background is SolidColorBrush currentBrush
+            ? currentBrush.Color
+            : ((SolidColorBrush)FindResource("MainWindowBackground")).Color;
     }
 
     private static SystembackdropType GetBackdropOption()
